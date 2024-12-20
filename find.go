@@ -1,4 +1,4 @@
-// find provides builder functions to create a fs.WalkDirFunc that emulates `find`
+// Package find provides a wrapper around fs.WalkDir that uses matching functions to
 package find
 
 import (
@@ -6,8 +6,19 @@ import (
 	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/djherbis/times"
+)
+
+type FileTimeType rune
+
+const (
+	Created  FileTimeType = 'B'
+	Accessed FileTimeType = 'a'
+	Modified FileTimeType = 'm'
+	Changed  FileTimeType = 'c'
 )
 
 // Default capacity for matched file array
@@ -38,13 +49,17 @@ type FinderError struct {
 
 type Finder struct {
 	Found                FoundFn
-	WalkErrorHandler     ErrorHandler // function called when filepath.WalkFunc is called with an error
-	InternalErrorHandler ErrorHandler // function called when a matcher errors
-	matchers             []Matcher    // internal array of matchers to be called
-	root                 string
-	Paths                []string // paths matched during processing
+	WalkErrorHandler     ErrorHandler   // function called when filepath.WalkFunc is called with an error
+	InternalErrorHandler ErrorHandler   // function called when a matcher errors
+	matchers             []Matcher      // internal array of matchers to be called
+	Paths                []string       // paths matched during processing
+	CacheCmpFile         bool           // if false the comparison file for NewerXY will not be cached but calculated on each call
+	cmpFileTime          times.Timespec // Cache time data for comparison file
+	root                 string         // keep track of the root during processing to get relative paths
+	started              time.Time      // keep track of when Find started
 }
 
+// NewFinder creates and initialises a new Finder struct.
 func NewFinder() *Finder {
 	return &Finder{
 		Paths:                make([]string, 0, DefaultCapacity),
@@ -58,14 +73,23 @@ func NewFinder() *Finder {
 func (finder *Finder) Reset() {
 	finder.Paths = make([]string, DefaultCapacity)
 	finder.root = ""
+	finder.started = time.Time{}
 }
 
 // Find searches the filesystem from `root` returning a slice of matching files.
 // If no matchers have been added this behaves as is called with a Name matcher
 // set to '*' - as does `find`
 func (finder *Finder) Find(root string) ([]string, error) {
+	return finder.FindFS(root, os.DirFS(root))
+}
+
+// FindFS searches the filesystem provided returning a slice of matching files.
+// If no matchers have been added this behaves as is called with a Name matcher
+// set to '*' - as does `find`
+func (finder *Finder) FindFS(root string, rootFS fs.FS) ([]string, error) {
 	finder.root = root
-	return finder.Paths, filepath.WalkDir(root, finder.walkFn)
+	finder.started = time.Now()
+	return finder.Paths, fs.WalkDir(rootFS, root, finder.walkFn)
 }
 
 // Name appends a matcher which selects paths based on a glob of their name (where name is the final component in the path)
@@ -110,12 +134,6 @@ func (finder *Finder) MinDepth(depth int) *Finder {
 	return finder
 }
 
-// Or appends a Matcher which returns true if any of the supplied Matchers returns true.
-func (finder *Finder) Or(matchers ...Matcher) *Finder {
-	finder.matchers = append(finder.matchers, Or(finder, matchers...))
-	return finder
-}
-
 // Owner appends a Matcher which returns true if the owning user of the path is the specified
 // string (testing name then uid)
 func (finder *Finder) Owner(name string) *Finder {
@@ -127,6 +145,12 @@ func (finder *Finder) Owner(name string) *Finder {
 // string (testing name then uid)
 func (finder *Finder) Group(name string) *Finder {
 	finder.matchers = append(finder.matchers, Owner(finder, name))
+	return finder
+}
+
+// Or appends a Matcher which returns true if any of the supplied Matchers returns true.
+func (finder *Finder) Or(matchers ...Matcher) *Finder {
+	finder.matchers = append(finder.matchers, Or(finder, matchers...))
 	return finder
 }
 
@@ -171,6 +195,8 @@ func (finder *Finder) pathDepth(path string) int {
 		return len(components)
 	}
 }
+
+// ageCmp
 
 // DefaultWalkErrorHandler writes the error to stderr and returns true
 // allowing the recursion to continue.
