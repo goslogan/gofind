@@ -160,6 +160,7 @@ func (finder *Finder) walkFn(path string, info fs.DirEntry, err error) error {
 	// only occurs if the stat on the root fails at which point we go no further
 	if info == nil {
 		finder.WalkErrorHandler(err)
+		return err
 	}
 
 	for _, matcher := range finder.matchers {
