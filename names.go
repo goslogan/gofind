@@ -62,7 +62,7 @@ func IPath(finder *Finder, glob string) Matcher {
 
 // Regex returns a Matcher which returns true if the full path matches the supplied regular expression
 // Note that there is no equivalent to the -iregex flag in find - just make the regular expression case insensitive.
-func Regex(finder *Finder, regex regexp.Regexp) Matcher {
+func Regex(finder *Finder, regex *regexp.Regexp) Matcher {
 	return func(path string, info fs.DirEntry) (bool, error) {
 		return regex.MatchString(path), nil
 	}
@@ -91,6 +91,6 @@ func (finder *Finder) IPath(glob string) *Finder {
 }
 
 // Regex appends a matcher which selects paths based on a regular expression of their entire path
-func Regexp(finder *Finder, regex regexp.Regexp) *Finder {
+func (finder *Finder) Regex(regex *regexp.Regexp) *Finder {
 	return finder.appendMatcher(Regex(finder, regex))
 }

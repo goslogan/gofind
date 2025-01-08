@@ -60,6 +60,7 @@ type Finder struct {
 	CacheCmpFile         bool           // if false the comparison file for NewerXY will not be cached but calculated on each call
 	cmpFileTime          times.Timespec // Cache time data for comparison file
 	root                 string         // keep track of the root during processing to get relative paths
+	rootFS               fs.StatFS      // keep track of the root filesystem
 	started              time.Time      // keep track of when Find started
 }
 
@@ -87,14 +88,15 @@ func (finder *Finder) Reset() {
 // If no matchers have been added this behaves as is called with a Name matcher
 // set to '*' - as does `find`
 func (finder *Finder) Find(root string) ([]string, error) {
-	return finder.FindFS(root, os.DirFS(root))
+	return finder.FindFS(root, os.DirFS(root).(fs.StatFS))
 }
 
 // FindFS searches the filesystem provided returning a slice of matching files.
 // If no matchers have been added this behaves as is called with a Name matcher
 // set to '*' - as does `find`
-func (finder *Finder) FindFS(root string, rootFS fs.FS) ([]string, error) {
+func (finder *Finder) FindFS(root string, rootFS fs.StatFS) ([]string, error) {
 	finder.root = root
+	finder.rootFS = rootFS
 	finder.started = time.Now()
 	return finder.Paths, fs.WalkDir(rootFS, root, finder.walkFn)
 }
@@ -212,4 +214,9 @@ func DefaultFound(path string, info fs.DirEntry) error {
 // Error() returns a string representation of an internal error
 func (e *FinderError) Error() string {
 	return fmt.Sprintf("gofind: internal error processing '%s', underlying error - '%s", e.Path, e.Err.Error())
+}
+
+// Unwrap returns the underlying error in a FinderError
+func (e *FinderError) Unwrap() error {
+	return e.Err
 }
