@@ -2,6 +2,7 @@
 package find
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -36,19 +37,22 @@ type ErrorHandler func(err error) bool
 
 // Found function type. The Found function is called whenever all the matches pass. The caller can do
 // anything in this function but the path passed to it will not be recorded as matched unless it returns
-// true.
-type FoundFn func(path string, info fs.DirEntry) bool
+// nil.
+// The current directory can be skipped by returning fs.SkipDir. The recursion can be terminated by
+// returning fs.SkipAll. Returning find.SkipThis will skip the current file only.
+type FoundFn func(path string, info fs.DirEntry) error
 
 // FinderError wraps internal errors in processing
 type FinderError struct {
-	Err   error       // underlying error
-	Entry fs.DirEntry // what was being processed
-	Info  string      // operation specific information
-	Path  string      // path that led to the error
+	Matcher string      // name of the matcher that raised the error
+	Err     error       // underlying error
+	Entry   fs.DirEntry // what was being processed
+	Info    string      // operation specific information
+	Path    string      // path that led to the error
 }
 
 type Finder struct {
-	Found                FoundFn
+	Found                FoundFn        // Set the Found function to control if the path matched is recorded.
 	WalkErrorHandler     ErrorHandler   // function called when filepath.WalkFunc is called with an error
 	InternalErrorHandler ErrorHandler   // function called when a matcher errors
 	matchers             []Matcher      // internal array of matchers to be called
@@ -58,6 +62,9 @@ type Finder struct {
 	root                 string         // keep track of the root during processing to get relative paths
 	started              time.Time      // keep track of when Find started
 }
+
+// SkipThis can be returned to tell the walkder to skip this file (don't add to the paths returned)
+var SkipThis = errors.New("skip this file")
 
 // NewFinder creates and initialises a new Finder struct.
 func NewFinder() *Finder {
@@ -71,7 +78,7 @@ func NewFinder() *Finder {
 
 // Reset clears the found paths and the stored root from a Finder struct
 func (finder *Finder) Reset() {
-	finder.Paths = make([]string, DefaultCapacity)
+	finder.Paths = make([]string, 0, DefaultCapacity)
 	finder.root = ""
 	finder.started = time.Time{}
 }
@@ -92,98 +99,84 @@ func (finder *Finder) FindFS(root string, rootFS fs.FS) ([]string, error) {
 	return finder.Paths, fs.WalkDir(rootFS, root, finder.walkFn)
 }
 
-// Name appends a matcher which selects paths based on a glob of their name (where name is the final component in the path)
-// `find . -name x`
-func (finder *Finder) Name(glob string) *Finder {
-	finder.matchers = append(finder.matchers, Name(finder, glob))
-	return finder
-}
-
-// Dir appends a matcher which selects paths which are directories only
-// `find . -type d`
-func (finder *Finder) Dir() *Finder {
-	finder.matchers = append(finder.matchers, Dir(finder))
-	return finder
-}
-
-// File appends a matcher which selects paths which are regular files only
-// `find . -type f`
-func (finder *Finder) File() *Finder {
-	finder.matchers = append(finder.matchers, File(finder))
-	return finder
-}
-
 // Depth matches a path if the depth of the path relative to the starting point is `depth`
 // `find . -depth n`
 func (finder *Finder) Depth(depth int) *Finder {
-	finder.matchers = append(finder.matchers, Depth(finder, depth))
-	return finder
+	return finder.appendMatcher(Depth(finder, depth))
 }
 
 // MaxDepth matches a path if the depth of the path relative to the starting point is `depth`
 // `find . -maxdepth n`
 func (finder *Finder) MaxDepth(depth int) *Finder {
-	finder.matchers = append(finder.matchers, MaxDepth(finder, depth))
-	return finder
+	return finder.appendMatcher(MaxDepth(finder, depth))
 }
 
 // MinDepth matches a path if the depth of the path relative to the starting point is `depth`
 // `find . -mindepth n`
 func (finder *Finder) MinDepth(depth int) *Finder {
-	finder.matchers = append(finder.matchers, MinDepth(finder, depth))
-	return finder
+	return finder.appendMatcher(MinDepth(finder, depth))
 }
 
 // Owner appends a Matcher which returns true if the owning user of the path is the specified
 // string (testing name then uid)
 func (finder *Finder) Owner(name string) *Finder {
-	finder.matchers = append(finder.matchers, Owner(finder, name))
-	return finder
+	return finder.appendMatcher(Owner(finder, name))
 }
 
 // Group appends a Matcher which returns true if the owning group of the path is the specified
 // string (testing name then uid)
 func (finder *Finder) Group(name string) *Finder {
-	finder.matchers = append(finder.matchers, Owner(finder, name))
-	return finder
+	return finder.appendMatcher(Owner(finder, name))
 }
 
-// Or appends a Matcher which returns true if any of the supplied Matchers returns true.
-func (finder *Finder) Or(matchers ...Matcher) *Finder {
-	finder.matchers = append(finder.matchers, Or(finder, matchers...))
-	return finder
+// Prune returns a Matcher which cause the current directory to be skipped
+func (finder *Finder) Prune() *Finder {
+	return finder.appendMatcher(Prune(finder))
+}
+
+// CallInternalErrorHandler wraps the internal error handler property call in order
+// to handle skip type errors (which we have to always return).
+func (finder *Finder) CallInternalErrorHandler(err error) error {
+	if err == fs.SkipDir || err == fs.SkipAll || err == SkipThis {
+		return err
+	}
+	if finder.InternalErrorHandler(err) {
+		return nil
+	}
+	return err
 }
 
 // walkFn is passed to filepath.WalkDir to operate the path walk
-func (finder *Finder) walkFn(path string, info fs.DirEntry, err error) error {
+func (finder *Finder) walkFn(path string, info fs.DirEntry, walkErr error) error {
 
 	// only occurs if the stat on the root fails at which point we go no further
 	if info == nil {
-		finder.WalkErrorHandler(err)
-		return err
+		finder.WalkErrorHandler(walkErr)
+		return walkErr
+	}
+
+	if walkErr != nil && finder.WalkErrorHandler(walkErr) {
+		return walkErr
 	}
 
 	for _, matcher := range finder.matchers {
-		matched, err := finder.callMatcher(matcher, path, info, err)
-		if err != nil || !matched {
+		matched, err := matcher(path, info)
+		if !matched || (err != nil && finder.WalkErrorHandler(err)) {
 			return err
 		}
 	}
 
-	if finder.Found(path, info) {
+	err := finder.Found(path, info)
+	if err == nil {
 		finder.Paths = append(finder.Paths, path)
 	}
-
-	return nil
+	return err
 }
 
-// callMatcher calls the supplied matcher after handling any error that might have been
-// passed to the WalkFunc
-func (finder *Finder) callMatcher(currentMatcher Matcher, path string, info fs.DirEntry, err error) (bool, error) {
-	if err != nil && !finder.WalkErrorHandler(err) {
-		return false, err
-	}
-	return currentMatcher(path, info)
+// appendMatcher adds the provided matcher to the finder and returns the finder.
+func (finder *Finder) appendMatcher(matcher Matcher) *Finder {
+	finder.matchers = append(finder.matchers, matcher)
+	return finder
 }
 
 // pathDepth returns the depth of the passed path compared to the root (where 0 means it *is* the root)
@@ -196,8 +189,6 @@ func (finder *Finder) pathDepth(path string) int {
 		return len(components)
 	}
 }
-
-// ageCmp
 
 // DefaultWalkErrorHandler writes the error to stderr and returns true
 // allowing the recursion to continue.
@@ -214,8 +205,8 @@ func DefaultInternalErrorHandler(err error) bool {
 }
 
 // DefaultFound simply returns true to simplify the call model
-func DefaultFound(path string, info fs.DirEntry) bool {
-	return true
+func DefaultFound(path string, info fs.DirEntry) error {
+	return nil
 }
 
 // Error() returns a string representation of an internal error

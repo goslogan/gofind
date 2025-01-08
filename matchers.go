@@ -3,42 +3,12 @@ package find
 import (
 	"fmt"
 	"io/fs"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/djherbis/times"
 	"github.com/goslogan/gofind/internal"
 )
-
-// Name generates a Matcher which returns true if the name of the file (or directory)
-// matches the glob pattern provided.
-func Name(finder *Finder, glob string) Matcher {
-
-	return func(path string, info fs.DirEntry) (bool, error) {
-		matched, err := filepath.Match(glob, info.Name())
-		if err != nil && !finder.InternalErrorHandler(err) {
-			return false, &FinderError{Err: err, Path: path, Info: glob, Entry: info}
-		}
-		return matched, nil
-	}
-}
-
-// Dir returns a Matcher which returns true if the path is a directory, false if not
-// `find . -type d`
-func Dir(finder *Finder) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
-		return info.IsDir(), nil
-	}
-}
-
-// File returns a Matcher which returns true if the path is regular file, false if not
-// `find . -type f`
-func File(finder *Finder) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
-		return info.Type().IsRegular(), nil
-	}
-}
 
 // Depth returns a Matcher which returns true if the current path (final component) is
 // `depth` deep compared to the starting point (depth zero)
@@ -71,7 +41,7 @@ func MaxDepth(finder *Finder, depth int) Matcher {
 func Owner(finder *Finder, name string) Matcher {
 	return func(path string, info fs.DirEntry) (bool, error) {
 		user, err := internal.FileOwnerUser(path, info)
-		if err != nil && !finder.InternalErrorHandler(err) {
+		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err
 		}
 		if strings.EqualFold(name, user.Name) {
@@ -88,7 +58,7 @@ func Owner(finder *Finder, name string) Matcher {
 func Group(finder *Finder, name string) Matcher {
 	return func(path string, info fs.DirEntry) (bool, error) {
 		group, err := internal.FileOwnerGroup(path, info)
-		if err != nil && !finder.InternalErrorHandler(err) {
+		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err
 		}
 		if strings.EqualFold(name, group.Name) {
@@ -96,6 +66,13 @@ func Group(finder *Finder, name string) Matcher {
 		} else {
 			return name == group.Gid, nil
 		}
+	}
+}
+
+// Prune returns a Matcher which simply stops the walk down the current path.
+func Prune(finder *Finder) Matcher {
+	return func(path string, info fs.DirEntry) (bool, error) {
+		return false, fs.SkipDir
 	}
 }
 
@@ -113,26 +90,24 @@ func Newer(finder *Finder, timeType FileTimeType, compare string) Matcher {
 		var cmpTimes times.Timespec
 		var err error
 
-		if finder.CacheCmpFile {
-			cmpTimes = finder.cmpFileTime
-		}
+		cmpTimes = finder.cmpFileTime
 
 		if cmpTimes == nil {
 			cmpTimes, err = times.Stat(compare)
-			if err != nil && !finder.InternalErrorHandler(err) {
+			if err = finder.CallInternalErrorHandler(err); err != nil {
 				return false, err
+			}
+			if finder.CacheCmpFile {
+				finder.cmpFileTime = cmpTimes
 			}
 		}
 
 		fInfo, err := info.Info()
-		if err != nil && !finder.InternalErrorHandler(err) {
+		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err
 		}
 
 		pathTimes := times.Get(fInfo)
-		if err != nil && !finder.InternalErrorHandler(err) {
-			return false, err
-		}
 
 		switch timeType {
 		case Created:
@@ -154,22 +129,5 @@ func Newer(finder *Finder, timeType FileTimeType, compare string) Matcher {
 		default:
 			return false, &FinderError{Path: path, Info: fmt.Sprintf("impossible time type: %s", strconv.QuoteRune(rune(timeType)))}
 		}
-	}
-}
-
-// Or generates a Matcher which returns true if any of the Matchers provided returns true.
-func Or(finder *Finder, matchers ...Matcher) Matcher {
-
-	return func(path string, info fs.DirEntry) (bool, error) {
-		for _, matcher := range matchers {
-			// internal error handler has already been called and err returned if err is not nil
-			cont, err := matcher(path, info)
-			if err != nil {
-				return false, err
-			} else if !cont {
-				return false, nil
-			}
-		}
-		return true, nil
 	}
 }
