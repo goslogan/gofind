@@ -72,3 +72,34 @@ func Prune(finder *Finder) Matcher {
 		return false, fs.SkipDir
 	}
 }
+
+// Empty returns a Matcher which returns true if the current path (file or directory) is empty.
+func Empty(finder *Finder) Matcher {
+
+	return func(path string, info fs.DirEntry) (bool, error) {
+		if info.IsDir() {
+			dirContent, err := finder.rootFS.ReadDir(path)
+			if finder.CallInternalErrorHandler(err); err != nil {
+				return false, err
+			} else {
+				return len(dirContent) == 0, nil
+			}
+		} else if info.Type().IsRegular() {
+			fileInfo, err := info.Info()
+			if finder.CallInternalErrorHandler(err); err != nil {
+				return false, err
+			} else {
+				return fileInfo.Size() == 0, nil
+			}
+		} else {
+			// no meaningful behaviour defined for other types
+			return false, nil
+		}
+	}
+
+}
+
+// Empty appends a Matcher which returns true if the current path (file or drectory) is empty.
+func (finder *Finder) Empty() *Finder {
+	return finder.appendMatcher(Empty(finder))
+}

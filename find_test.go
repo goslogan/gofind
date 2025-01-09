@@ -86,3 +86,11 @@ func TestPrune(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, matches, 0)
 }
+
+func TestEmpty(t *testing.T) {
+	finder := NewFinder().Empty()
+	matches, err := finder.FindFS("test", testFS)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/empty", "test/other/zero.dat"}, matches)
+}

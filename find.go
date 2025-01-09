@@ -60,8 +60,13 @@ type Finder struct {
 	CacheCmpFile         bool           // if false the comparison file for NewerXY will not be cached but calculated on each call
 	cmpFileTime          times.Timespec // Cache time data for comparison file
 	root                 string         // keep track of the root during processing to get relative paths
-	rootFS               fs.StatFS      // keep track of the root filesystem
+	rootFS               FindFS         // keep track of the root filesystem
 	started              time.Time      // keep track of when Find started
+}
+
+type FindFS interface {
+	fs.StatFS
+	fs.ReadDirFS
 }
 
 // SkipThis can be returned to tell the walkder to skip this file (don't add to the paths returned)
@@ -88,17 +93,22 @@ func (finder *Finder) Reset() {
 // If no matchers have been added this behaves as is called with a Name matcher
 // set to '*' - as does `find`
 func (finder *Finder) Find(root string) ([]string, error) {
-	return finder.FindFS(root, os.DirFS(root).(fs.StatFS))
+	return finder.FindFS(root, os.DirFS(root))
 }
 
 // FindFS searches the filesystem provided returning a slice of matching files.
 // If no matchers have been added this behaves as is called with a Name matcher
 // set to '*' - as does `find`
-func (finder *Finder) FindFS(root string, rootFS fs.StatFS) ([]string, error) {
+func (finder *Finder) FindFS(root string, rootFS interface{}) ([]string, error) {
+
+	if _, ok := rootFS.(FindFS); !ok {
+		return []string{}, errors.New("gofind: rootFS must implement fs.StatFS and fs.ReadDirFS")
+	}
+
 	finder.root = root
-	finder.rootFS = rootFS
+	finder.rootFS = rootFS.(FindFS)
 	finder.started = time.Now()
-	return finder.Paths, fs.WalkDir(rootFS, root, finder.walkFn)
+	return finder.Paths, fs.WalkDir(rootFS.(fs.FS), root, finder.walkFn)
 }
 
 // Depth matches a path if the depth of the path relative to the starting point is `depth`
@@ -139,6 +149,9 @@ func (finder *Finder) Prune() *Finder {
 // CallInternalErrorHandler wraps the internal error handler property call in order
 // to handle skip type errors (which we have to always return).
 func (finder *Finder) CallInternalErrorHandler(err error) error {
+	if err == nil {
+		return nil
+	}
 	if err == fs.SkipDir || err == fs.SkipAll || err == SkipThis {
 		return err
 	}

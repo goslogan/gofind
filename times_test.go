@@ -52,3 +52,13 @@ func TestNewChangedTime(t *testing.T) {
 	assert.Len(t, matches, 4)
 	assert.ElementsMatch(t, []string{"test", "test/empty", "test/other", "test/other/zero.dat"}, matches)
 }
+
+func TestNewCreatedTime(t *testing.T) {
+	finder := NewFinder()
+	finder.Newer(Created, "test/other/DATA.csv")
+	matches, err := finder.FindFS("test", testFS)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/empty", "test/other/zero.dat"}, matches)
+
+}
