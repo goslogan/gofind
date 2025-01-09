@@ -34,8 +34,8 @@ func TestExactDepthFInd(t *testing.T) {
 	finder.Depth(1)
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 4)
-	assert.ElementsMatch(t, []string{"test/other", "test/l2", "test/l1.txt", "test/data.csv"}, matches)
+	assert.Len(t, matches, 5)
+	assert.ElementsMatch(t, []string{"test/empty", "test/other", "test/l2", "test/l1.txt", "test/data.csv"}, matches)
 }
 
 // Find at a specific depth
@@ -44,8 +44,8 @@ func TestMaxDepthFind(t *testing.T) {
 	finder.MaxDepth(1)
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 5)
-	assert.ElementsMatch(t, []string{"test", "test/l2", "test/l1.txt", "test/other", "test/data.csv"}, matches)
+	assert.Len(t, matches, 6)
+	assert.ElementsMatch(t, []string{"test/empty", "test", "test/l2", "test/l1.txt", "test/other", "test/data.csv"}, matches)
 }
 
 // Find at a minimum depth
@@ -54,8 +54,8 @@ func TestMinDepthFind(t *testing.T) {
 	finder.MinDepth(2)
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 5)
-	assert.ElementsMatch(t, []string{"test/l2/l2.txt", "test/other/perms.txt", "test/other/binary.dat", "test/other/link.dat", "test/other/DATA.csv"}, matches)
+	assert.Len(t, matches, 6)
+	assert.ElementsMatch(t, []string{"test/other/zero.dat", "test/l2/l2.txt", "test/other/perms.txt", "test/other/binary.dat", "test/other/link.dat", "test/other/DATA.csv"}, matches)
 }
 
 // Find at an exact depth
@@ -74,8 +74,8 @@ func TestNot(t *testing.T) {
 	finder.Not(File(finder))
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 4)
-	assert.ElementsMatch(t, []string{"test", "test/other", "test/l2", "test/other/link.dat"}, matches)
+	assert.Len(t, matches, 5)
+	assert.ElementsMatch(t, []string{"test/empty", "test", "test/other", "test/l2", "test/other/link.dat"}, matches)
 }
 
 // Simple prune test - more useful in complex use cases, this test

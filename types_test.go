@@ -29,8 +29,8 @@ func TestDirFind(t *testing.T) {
 	finder.Dir()
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 3)
-	assert.ElementsMatch(t, []string{"test", "test/l2", "test/other"}, matches)
+	assert.Len(t, matches, 4)
+	assert.ElementsMatch(t, []string{"test/empty", "test", "test/l2", "test/other"}, matches)
 }
 
 // Find the regular files only
@@ -39,8 +39,8 @@ func TestFileFind(t *testing.T) {
 	finder.File()
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 6)
-	assert.ElementsMatch(t, []string{"test/l1.txt", "test/data.csv", "test/l2/l2.txt", "test/other/binary.dat", "test/other/perms.txt", "test/other/DATA.csv"}, matches)
+	assert.Len(t, matches, 7)
+	assert.ElementsMatch(t, []string{"test/l1.txt", "test/data.csv", "test/l2/l2.txt", "test/other/binary.dat", "test/other/perms.txt", "test/other/DATA.csv", "test/other/zero.dat"}, matches)
 }
 
 // Find by type
