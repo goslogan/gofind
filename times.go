@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"strconv"
+	"time"
 
 	"github.com/djherbis/times"
 )
@@ -11,7 +12,7 @@ import (
 // Newer returns a Matcher which returns true if the current file is newer than the supplied
 // filename. "newer" can be in terms of creation, modification, change or access time. This
 // maps the `find . -newerXY` except that we don't support the 't' parameter here.
-func Newer(finder *Finder, timeType FileTimeType, compare string) Matcher {
+func Newer(finder *Finder, timeType FileTimeType, compare string, compareTimeType FileTimeType) Matcher {
 
 	if finder.CacheCmpFile {
 		finder.cmpFileTime, _ = times.Stat(compare)
@@ -19,19 +20,20 @@ func Newer(finder *Finder, timeType FileTimeType, compare string) Matcher {
 
 	return func(path string, info fs.DirEntry) (bool, error) {
 
-		var cmpTimes times.Timespec
+		var compareTimeSpec times.Timespec
+		var pathTime, compareTime time.Time
 		var err error
 
-		cmpTimes = finder.cmpFileTime
+		compareTimeSpec = finder.cmpFileTime
 
 		if cmpTimes == nil {
 			cmpStat, err := finder.rootFS.Stat(compare)
 			if err = finder.CallInternalErrorHandler(err); err != nil {
 				return false, err
 			}
-			cmpTimes = times.Get(cmpStat)
+			compareTimeSpec = times.Get(cmpStat)
 			if finder.CacheCmpFile {
-				finder.cmpFileTime = cmpTimes
+				finder.cmpFileTime = compareTimeSpec
 			}
 		}
 
@@ -40,18 +42,18 @@ func Newer(finder *Finder, timeType FileTimeType, compare string) Matcher {
 			return false, err
 		}
 
-		pathTimes := times.Get(fInfo)
+		pathTimeSpec := times.Get(fInfo)
 
 		switch timeType {
 		case Created:
-			if cmpTimes.HasBirthTime() && pathTimes.HasBirthTime() {
-				return pathTimes.BirthTime().After(cmpTimes.BirthTime()), nil
+			if pathTimeSpec.HasBirthTime() {
+				pathTime = pathTimeSpec.BirthTime()
 			} else {
 				err := finder.CallInternalErrorHandler(&FinderError{Path: path, Info: "filesystem does not support birth time", Entry: info})
 				return false, err
 			}
 		case Modified:
-			return pathTimes.ModTime().After(cmpTimes.ModTime()), nil
+			pathTime = pathTimeSpec.ModTime()
 		case Accessed:
 			return pathTimes.AccessTime().After(cmpTimes.AccessTime()), nil
 		case Changed:
