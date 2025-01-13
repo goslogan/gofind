@@ -14,12 +14,16 @@ import (
 )
 
 type FileTimeType rune
+type TimeCompareType rune
 
 const (
-	Created  FileTimeType = 'B'
-	Accessed FileTimeType = 'a'
-	Modified FileTimeType = 'm'
-	Changed  FileTimeType = 'c'
+	Created     FileTimeType    = 'B'
+	Accessed    FileTimeType    = 'a'
+	Modified    FileTimeType    = 'm'
+	Changed     FileTimeType    = 'c'
+	Equal       TimeCompareType = '='
+	LessThan    TimeCompareType = '<'
+	GreaterThan TimeCompareType = '>'
 )
 
 // Default capacity for matched file array

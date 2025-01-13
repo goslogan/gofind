@@ -5,8 +5,11 @@ package find
 import (
 	"io/fs"
 	"syscall"
+	"testing"
 	"testing/fstest"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var testFS = fstest.MapFS{
@@ -279,4 +282,51 @@ var testFS = fstest.MapFS{
 			Birthtimespec: syscall.Timespec{Sec: time.Date(2025, time.January, 8, 23, 15, 1, 0, time.UTC).Unix()},
 		},
 	},
+}
+
+func TestBMinLess(t *testing.T) {
+
+	fTime := time.Now()
+	newFiles := fstest.MapFile{
+		ModTime: fTime.Add(time.Minute),
+		Mode:    fs.FileMode(0o644),
+		Sys: &syscall.Stat_t{
+			Dev:           16777232,
+			Ino:           8947723,
+			Nlink:         1,
+			Mode:          0x81A4,
+			Uid:           502,
+			Gid:           20,
+			Rdev:          0,
+			Size:          0,
+			Blksize:       4096,
+			Blocks:        0,
+			Atimespec:     syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()},
+			Mtimespec:     syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()},
+			Ctimespec:     syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()},
+			Birthtimespec: syscall.Timespec{Sec: fTime.Unix()},
+		},
+	}
+
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFiles})
+
+	finder := NewFinder()
+	finder.Bmin(2*time.Minute, LessThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func copyFSAndAdd(additional fstest.MapFS) fstest.MapFS {
+
+	cpy := fstest.MapFS{}
+	for k, v := range testFS {
+		cpy[k] = v
+	}
+	for k, v := range additional {
+		cpy[k] = v
+	}
+
+	return cpy
 }
