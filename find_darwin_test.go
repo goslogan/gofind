@@ -284,34 +284,181 @@ var testFS = fstest.MapFS{
 	},
 }
 
+var newFile = fstest.MapFile{
+	ModTime: time.Now(),
+	Mode:    fs.FileMode(0o644),
+	Sys: &syscall.Stat_t{
+		Dev:           16777232,
+		Ino:           8947723,
+		Nlink:         1,
+		Mode:          0x81A4,
+		Uid:           502,
+		Gid:           20,
+		Rdev:          0,
+		Size:          0,
+		Blksize:       4096,
+		Blocks:        0,
+		Atimespec:     syscall.Timespec{Sec: time.Now().Unix()},
+		Mtimespec:     syscall.Timespec{Sec: time.Now().Unix()},
+		Ctimespec:     syscall.Timespec{Sec: time.Now().Unix()},
+		Birthtimespec: syscall.Timespec{Sec: time.Now().Unix()},
+	},
+}
+
 func TestBMinLess(t *testing.T) {
 
 	fTime := time.Now()
-	newFiles := fstest.MapFile{
-		ModTime: fTime.Add(time.Minute),
-		Mode:    fs.FileMode(0o644),
-		Sys: &syscall.Stat_t{
-			Dev:           16777232,
-			Ino:           8947723,
-			Nlink:         1,
-			Mode:          0x81A4,
-			Uid:           502,
-			Gid:           20,
-			Rdev:          0,
-			Size:          0,
-			Blksize:       4096,
-			Blocks:        0,
-			Atimespec:     syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()},
-			Mtimespec:     syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()},
-			Ctimespec:     syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()},
-			Birthtimespec: syscall.Timespec{Sec: fTime.Unix()},
-		},
-	}
-
-	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFiles})
+	newFile.Sys.(*syscall.Stat_t).Birthtimespec = syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
 
 	finder := NewFinder()
 	finder.Bmin(2*time.Minute, LessThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestBMinGreater(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Birthtimespec = syscall.Timespec{Sec: fTime.Add(-5000 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Bmin(4500*time.Hour, GreaterThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestBMinEqual(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Birthtimespec = syscall.Timespec{Sec: fTime.Add(500 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Bmin(500*time.Hour, Equal)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestAminLess(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Atimespec = syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+
+	finder := NewFinder()
+	finder.Amin(2*time.Minute, LessThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestAminGreater(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Atimespec = syscall.Timespec{Sec: fTime.Add(-5000 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Amin(4500*time.Hour, GreaterThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestAminEqual(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Atimespec = syscall.Timespec{Sec: fTime.Add(500 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Amin(500*time.Hour, Equal)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestCminLess(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Ctimespec = syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+
+	finder := NewFinder()
+	finder.Cmin(2*time.Minute, LessThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestCminGreater(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Ctimespec = syscall.Timespec{Sec: fTime.Add(-5000 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Cmin(4500*time.Hour, GreaterThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestCminEqual(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Ctimespec = syscall.Timespec{Sec: fTime.Add(500 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Cmin(500*time.Hour, Equal)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestMminLess(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Mtimespec = syscall.Timespec{Sec: fTime.Add(time.Minute).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+
+	finder := NewFinder()
+	finder.Mmin(2*time.Minute, LessThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestMminGreater(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Mtimespec = syscall.Timespec{Sec: fTime.Add(-5000 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Mmin(4500*time.Hour, GreaterThan)
+	matches, err := finder.FindFS("test", cpy)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+}
+
+func TestMminEqual(t *testing.T) {
+
+	fTime := time.Now()
+	newFile.Sys.(*syscall.Stat_t).Mtimespec = syscall.Timespec{Sec: fTime.Add(500 * time.Hour).Unix()}
+	cpy := copyFSAndAdd(fstest.MapFS{"test/other/newfile.dat": &newFile})
+	finder := NewFinder()
+	finder.Mmin(500*time.Hour, Equal)
 	matches, err := finder.FindFS("test", cpy)
 	assert.Nil(t, err)
 	assert.Len(t, matches, 1)

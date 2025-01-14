@@ -168,7 +168,7 @@ func xmin(finder *Finder, minutes time.Duration, compare TimeCompareType, timeTy
 		case GreaterThan:
 			return difference > minutes.Round(time.Minute), nil
 		default:
-			err := finder.CallInternalErrorHandler(&FinderError{Matcher: "xmin", Path: path, Info: fmt.Sprintf("impossible time compare type: %s", strconv.QuoteRune(rune(compare)))})
+			err := finder.CallInternalErrorHandler(&FinderError{Matcher: "Xmin", Path: path, Info: fmt.Sprintf("impossible time compare type: %s", strconv.QuoteRune(rune(compare)))})
 			return false, err
 		}
 	}
