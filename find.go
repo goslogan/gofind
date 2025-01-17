@@ -69,7 +69,7 @@ type Finder struct {
 	InternalErrorHandler ErrorHandler   // function called when a matcher errors
 	Paths                []string       // paths matched during processing
 	CacheCmpFile         bool           // if false the comparison file for NewerXY will not be cached but calculated on each call
-	Follow               bool           // set to true to follow symlinks and test the target of the link not the link itself
+	Follow               bool           // set to true to follow symlinks and test the target of the link not the linkgi itself
 	matchers             []Matcher      // internal array of matchers to be called
 	cmpFileTime          times.Timespec // Cache time data for comparison file
 	root                 string         // keep track of the root during processing to get relative paths
@@ -187,19 +187,23 @@ func (finder *Finder) walkFn(path string, dirInfo fs.DirEntry, walkErr error) er
 		return walkErr
 	}
 
-	/*
-		if finder.Follow && info.Type().Is(fs.ModeSymlink) {
-			info, walkErr = fs.Stat(finder.rootFS, path)
-			if walkErr != nil {
-				return walkErr
-			}
-		}
-	*/
-
 	info, err := dirInfo.Info()
 	if err = finder.CallInternalErrorHandler(err); err != nil {
 		return err
 	}
+
+	info, err = dirInfo.Info()
+	if err = finder.CallInternalErrorHandler(err); err != nil {
+		return err
+	}
+
+	/* if finder.Follow && info.Mode().Type() == fs.ModeSymlink {
+		info, err = finder.rootFS.
+		info, walkErr = fs.Stat(finder.rootFS, path)
+		if walkErr != nil {
+			return walkErr
+		}
+	}*/
 
 	for _, matcher := range finder.matchers {
 		matched, err := matcher(path, info)
