@@ -18,7 +18,7 @@ func Newer(finder *Finder, timeType FileTimeType, compare string, compareTimeTyp
 		finder.cmpFileTime, _ = times.Stat(compare)
 	}
 
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 
 		var compareTimeSpec times.Timespec
 		var pathTime, compareTime time.Time
@@ -37,11 +37,7 @@ func Newer(finder *Finder, timeType FileTimeType, compare string, compareTimeTyp
 			}
 		}
 
-		fInfo, err := info.Info()
-		if err = finder.CallInternalErrorHandler(err); err != nil {
-			return false, err
-		}
-		pathTimeSpec := times.Get(fInfo)
+		pathTimeSpec := times.Get(info)
 		pathTime, err = finder.getTime(path, info, pathTimeSpec, timeType)
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err
@@ -56,7 +52,7 @@ func Newer(finder *Finder, timeType FileTimeType, compare string, compareTimeTyp
 	}
 }
 
-func (finder *Finder) getTime(path string, info fs.DirEntry, source times.Timespec, timeType FileTimeType) (time.Time, error) {
+func (finder *Finder) getTime(path string, info fs.FileInfo, source times.Timespec, timeType FileTimeType) (time.Time, error) {
 	switch timeType {
 	case Created:
 		if source.HasBirthTime() {
@@ -147,12 +143,9 @@ func (finder *Finder) Bmin(minutes time.Duration, compare TimeCompareType) *Find
 
 // xmin is the underlying impelementation of the Amin, Bmin, Mmin and Cmin matchers
 func xmin(finder *Finder, minutes time.Duration, compare TimeCompareType, timeType FileTimeType) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
-		fInfo, err := info.Info()
-		if err = finder.CallInternalErrorHandler(err); err != nil {
-			return false, err
-		}
-		timeSpec := times.Get(fInfo)
+	return func(path string, info fs.FileInfo) (bool, error) {
+
+		timeSpec := times.Get(info)
 		fileTime, err := finder.getTime(path, info, timeSpec, timeType)
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err

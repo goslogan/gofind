@@ -5,7 +5,7 @@ import "io/fs"
 // Or generates a Matcher which returns true if any of the Matchers provided returns true.
 func Or(finder *Finder, matchers ...Matcher) Matcher {
 
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		for _, matcher := range matchers {
 			// internal error handler has already been called and err returned if err is not nil
 			matched, err := matcher(path, info)
@@ -21,7 +21,7 @@ func Or(finder *Finder, matchers ...Matcher) Matcher {
 
 // Not generates a Matcher which returns true if the provided Matcher returns false.
 func Not(finder *Finder, matcher Matcher) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		matched, err := matcher(path, info)
 		if err != nil {
 			return false, err
@@ -34,7 +34,7 @@ func Not(finder *Finder, matcher Matcher) Matcher {
 // And generates a Matcher which returns true if all of the Matchers provided return true.
 // Default behaviour is to AND results but this allows for complex nested matching behaviour.
 func And(finder *Finder, matchers ...Matcher) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		for _, matcher := range matchers {
 			// internal error handler has already been called and err returned if err is not nil
 			matched, err := matcher(path, info)

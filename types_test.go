@@ -16,7 +16,9 @@ func TestDirMatcher(t *testing.T) {
 
 	for _, entry := range entries {
 		if entry.Name() == "l2" {
-			matched, err := matcher("test/l2", entry)
+			info, err := entry.Info()
+			assert.Nil(t, err)
+			matched, err := matcher("test/l2", info)
 			assert.Nil(t, err)
 			assert.True(t, matched)
 		}

@@ -107,8 +107,8 @@ func TestEmpty(t *testing.T) {
 	finder := NewFinder().Empty()
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 3)
-	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/empty", "test/other/zero.dat"}, matches)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/empty", "test/other/zero.dat"}, matches)
 }
 
 func TestSparse(t *testing.T) {

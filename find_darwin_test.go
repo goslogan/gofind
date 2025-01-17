@@ -3,6 +3,7 @@
 package find
 
 import (
+	"bytes"
 	"io/fs"
 	"syscall"
 	"testing"
@@ -284,6 +285,7 @@ var testFS = fstest.MapFS{
 	},
 
 	"test/other/sparsefile.dat": &fstest.MapFile{
+		Data:    bytes.Repeat([]byte{0x0}, 65536),
 		ModTime: time.Date(2023, time.December, 1, 11, 12, 22, 0, time.UTC),
 		Mode:    fs.FileMode(0o644),
 		Sys: &syscall.Stat_t{

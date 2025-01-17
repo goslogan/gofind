@@ -18,8 +18,10 @@ func TestNameMatcher(t *testing.T) {
 	assert.Nil(t, err)
 
 	for _, entry := range entries {
+		info, err := entry.Info()
+		assert.Nil(t, err)
 		if entry.Name() == "l1.txt" {
-			matched, err := matcher("test/l1.txt", entry)
+			matched, err := matcher("test/l1.txt", info)
 			assert.Nil(t, err)
 			assert.True(t, matched)
 		}

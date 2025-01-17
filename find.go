@@ -40,7 +40,7 @@ var DefaultCapacity int = 100
 // Match function type - should return (true, nil) if matching should continue with the current path
 // and false, nil if not. If an error occurs, it should return false, err.
 // the internal error handler function (Finder.InternalErrorHandler) should be called by the matcher
-type Matcher func(path string, info fs.DirEntry) (bool, error)
+type Matcher func(path string, info fs.FileInfo) (bool, error)
 
 // ErrorHandler is the function called by a Finder when an error occurs whilst calling
 // fs.WalkDir or when an internal error occurs. If it returns true, processing should continue, if false
@@ -52,13 +52,13 @@ type ErrorHandler func(err error) bool
 // nil.
 // The current directory can be skipped by returning fs.SkipDir. The recursion can be terminated by
 // returning fs.SkipAll. Returning find.SkipThis will skip the current file only.
-type FoundFn func(path string, info fs.DirEntry) error
+type FoundFn func(path string, info fs.FileInfo) error
 
 // FinderError wraps internal errors in processing
 type FinderError struct {
 	Matcher string      // name of the matcher that raised the error
 	Err     error       // underlying error
-	Entry   fs.DirEntry // what was being processed
+	Entry   fs.FileInfo // what was being processed
 	Info    string      // operation specific information
 	Path    string      // path that led to the error
 }
@@ -67,9 +67,10 @@ type Finder struct {
 	Found                FoundFn        // Set the Found function to control if the path matched is recorded.
 	WalkErrorHandler     ErrorHandler   // function called when filepath.WalkFunc is called with an error
 	InternalErrorHandler ErrorHandler   // function called when a matcher errors
-	matchers             []Matcher      // internal array of matchers to be called
 	Paths                []string       // paths matched during processing
 	CacheCmpFile         bool           // if false the comparison file for NewerXY will not be cached but calculated on each call
+	Follow               bool           // set to true to follow symlinks and test the target of the link not the link itself
+	matchers             []Matcher      // internal array of matchers to be called
 	cmpFileTime          times.Timespec // Cache time data for comparison file
 	root                 string         // keep track of the root during processing to get relative paths
 	rootFS               FindFS         // keep track of the root filesystem
@@ -174,16 +175,30 @@ func (finder *Finder) CallInternalErrorHandler(err error) error {
 }
 
 // walkFn is passed to filepath.WalkDir to operate the path walk
-func (finder *Finder) walkFn(path string, info fs.DirEntry, walkErr error) error {
+func (finder *Finder) walkFn(path string, dirInfo fs.DirEntry, walkErr error) error {
 
 	// only occurs if the stat on the root fails at which point we go no further
-	if info == nil {
+	if dirInfo == nil {
 		finder.WalkErrorHandler(walkErr)
 		return walkErr
 	}
 
 	if walkErr != nil && finder.WalkErrorHandler(walkErr) {
 		return walkErr
+	}
+
+	/*
+		if finder.Follow && info.Type().Is(fs.ModeSymlink) {
+			info, walkErr = fs.Stat(finder.rootFS, path)
+			if walkErr != nil {
+				return walkErr
+			}
+		}
+	*/
+
+	info, err := dirInfo.Info()
+	if err = finder.CallInternalErrorHandler(err); err != nil {
+		return err
 	}
 
 	for _, matcher := range finder.matchers {
@@ -193,7 +208,7 @@ func (finder *Finder) walkFn(path string, info fs.DirEntry, walkErr error) error
 		}
 	}
 
-	err := finder.Found(path, info)
+	err = finder.Found(path, info)
 	if err == nil {
 		finder.Paths = append(finder.Paths, path)
 	}
@@ -232,7 +247,7 @@ func DefaultInternalErrorHandler(err error) bool {
 }
 
 // DefaultFound simply returns true to simplify the call model
-func DefaultFound(path string, info fs.DirEntry) error {
+func DefaultFound(path string, info fs.FileInfo) error {
 	return nil
 }
 

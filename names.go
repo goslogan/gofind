@@ -11,7 +11,7 @@ import (
 // matches the glob pattern provided.
 func Name(finder *Finder, glob string) Matcher {
 
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		matched, err := filepath.Match(glob, info.Name())
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, &FinderError{Matcher: "Name", Err: err, Path: path, Info: glob, Entry: info}
@@ -25,7 +25,7 @@ func Name(finder *Finder, glob string) Matcher {
 func IName(finder *Finder, glob string) Matcher {
 
 	lglob := strings.ToLower(glob)
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		matched, err := filepath.Match(lglob, strings.ToLower(info.Name()))
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, &FinderError{Matcher: "IName", Err: err, Path: path, Info: glob, Entry: info}
@@ -37,7 +37,7 @@ func IName(finder *Finder, glob string) Matcher {
 // Path returns a Matcher which returns true if the entire path matches the glob pattern provided.
 func Path(finder *Finder, glob string) Matcher {
 
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		matched, err := filepath.Match(glob, path)
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, &FinderError{Matcher: "Name", Err: err, Path: path, Info: glob, Entry: info}
@@ -51,7 +51,7 @@ func Path(finder *Finder, glob string) Matcher {
 func IPath(finder *Finder, glob string) Matcher {
 
 	lglob := strings.ToLower(glob)
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		matched, err := filepath.Match(lglob, strings.ToLower(path))
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, &FinderError{Matcher: "IName", Err: err, Path: path, Info: glob, Entry: info}
@@ -63,7 +63,7 @@ func IPath(finder *Finder, glob string) Matcher {
 // Regex returns a Matcher which returns true if the full path matches the supplied regular expression
 // Note that there is no equivalent to the -iregex flag in find - just make the regular expression case insensitive.
 func Regex(finder *Finder, regex *regexp.Regexp) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		return regex.MatchString(path), nil
 	}
 }

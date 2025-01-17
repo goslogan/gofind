@@ -15,7 +15,7 @@ import (
 // `depth` deep compared to the starting point (depth zero)
 // `find . -depth n`
 func Depth(finder *Finder, depth int) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		return finder.pathDepth(path) == depth, nil
 	}
 }
@@ -23,7 +23,7 @@ func Depth(finder *Finder, depth int) Matcher {
 // Mindepth returns a Matcher which returns true if the current path is at least
 // depth deep compared to the starting point.
 func MinDepth(finder *Finder, depth int) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		return finder.pathDepth(path) >= depth, nil
 	}
 }
@@ -31,7 +31,7 @@ func MinDepth(finder *Finder, depth int) Matcher {
 // MaxDepth returns a Matcher which returns true if the current path is at most
 // depth deep compared to the starting point.
 func MaxDepth(finder *Finder, depth int) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		return finder.pathDepth(path) <= depth, nil
 	}
 }
@@ -40,7 +40,7 @@ func MaxDepth(finder *Finder, depth int) Matcher {
 // fails we try to treat the name as a number and see if matches the owner uid instead. The test
 // is case insensitive.
 func Owner(finder *Finder, name string) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		user, err := internal.FileOwnerUser(path, info)
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err
@@ -57,7 +57,7 @@ func Owner(finder *Finder, name string) Matcher {
 // fails we try to treat the name as a number and see if it matches the owner gid instead. The test
 // is case insensitive.
 func Group(finder *Finder, name string) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		group, err := internal.FileOwnerGroup(path, info)
 		if err = finder.CallInternalErrorHandler(err); err != nil {
 			return false, err
@@ -72,7 +72,7 @@ func Group(finder *Finder, name string) Matcher {
 
 // Prune returns a Matcher which simply stops the walk down the current path.
 func Prune(finder *Finder) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		return false, fs.SkipDir
 	}
 }
@@ -80,7 +80,7 @@ func Prune(finder *Finder) Matcher {
 // Empty returns a Matcher which returns true if the current path (file or directory) is empty.
 func Empty(finder *Finder) Matcher {
 
-	return func(path string, info fs.DirEntry) (bool, error) {
+	return func(path string, info fs.FileInfo) (bool, error) {
 		if info.IsDir() {
 			dirContent, err := finder.rootFS.ReadDir(path)
 			if finder.CallInternalErrorHandler(err); err != nil {
@@ -88,13 +88,8 @@ func Empty(finder *Finder) Matcher {
 			} else {
 				return len(dirContent) == 0, nil
 			}
-		} else if info.Type().IsRegular() {
-			fileInfo, err := info.Info()
-			if finder.CallInternalErrorHandler(err); err != nil {
-				return false, err
-			} else {
-				return fileInfo.Size() == 0, nil
-			}
+		} else if info.Mode().IsRegular() {
+			return info.Size() == 0, nil
 		} else {
 			// no meaningful behaviour defined for other types
 			return false, nil
@@ -124,13 +119,9 @@ func Size(finder *Finder, size int64, units TimeSizeType) Matcher {
 
 	bs := bytesize.ByteSize(size) * scaler
 
-	return func(path string, info fs.DirEntry) (bool, error) {
-		fileInfo, err := info.Info()
-		if finder.CallInternalErrorHandler(err); err != nil {
-			return false, err
-		}
+	return func(path string, info fs.FileInfo) (bool, error) {
 		if scaler != 0 {
-			scaled := bytesize.ByteSize(fileInfo.Size()).Round(scaler)
+			scaled := bytesize.ByteSize(info.Size()).Round(scaler)
 			return scaled == bs, nil
 		} else {
 			return false, fmt.Errorf("gofind: unknown time size units - %s", strconv.QuoteRune(rune(units)))
@@ -147,13 +138,9 @@ func (finder *Finder) Size(size int64, units TimeSizeType) *Finder {
 // Sparse returns true if the file is a sparse file (that is, the file size in blocks indicates the
 // file is smaller than the the Size would indicate).
 func Sparse(finder *Finder) Matcher {
-	return func(path string, info fs.DirEntry) (bool, error) {
-		fileInfo, err := info.Info()
-		if finder.CallInternalErrorHandler(err); err != nil {
-			return false, err
-		}
-		blocks := fileInfo.Sys().(*syscall.Stat_t).Blocks
-		return blocks*512 < fileInfo.Size(), nil
+	return func(path string, info fs.FileInfo) (bool, error) {
+		blocks := info.Sys().(*syscall.Stat_t).Blocks
+		return blocks*512 < info.Size(), nil
 	}
 }
 
