@@ -1,9 +1,13 @@
 package find
 
 import (
+	"fmt"
 	"io/fs"
+	"strconv"
 	"strings"
+	"syscall"
 
+	"github.com/goslogan/go-bytesize"
 	"github.com/goslogan/gofind/internal"
 )
 
@@ -102,4 +106,58 @@ func Empty(finder *Finder) Matcher {
 // Empty appends a Matcher which returns true if the current path (file or drectory) is empty.
 func (finder *Finder) Empty() *Finder {
 	return finder.appendMatcher(Empty(finder))
+}
+
+// Size returns a Matcher which returns true if the current file has the given size using the
+// provided units. The file size is rounded up to the next unit before testing.
+func Size(finder *Finder, size int64, units TimeSizeType) Matcher {
+
+	scaler := map[TimeSizeType]bytesize.ByteSize{
+		Bytes:     bytesize.B,
+		Blocks:    bytesize.KB * 2,
+		Kilobytes: bytesize.KB,
+		Megabytes: bytesize.MB,
+		Gigabytes: bytesize.GB,
+		Terabytes: bytesize.TB,
+		Petabytes: bytesize.PB,
+	}[units]
+
+	bs := bytesize.ByteSize(size) * scaler
+
+	return func(path string, info fs.DirEntry) (bool, error) {
+		fileInfo, err := info.Info()
+		if finder.CallInternalErrorHandler(err); err != nil {
+			return false, err
+		}
+		if scaler != 0 {
+			scaled := bytesize.ByteSize(fileInfo.Size()).Round(scaler)
+			return scaled == bs, nil
+		} else {
+			return false, fmt.Errorf("gofind: unknown time size units - %s", strconv.QuoteRune(rune(units)))
+		}
+	}
+}
+
+// Size appends a Matcher which returns true if the current file has the given size using the
+// provided units. The file size is rounded up to the next unit before testing.
+func (finder *Finder) Size(size int64, units TimeSizeType) *Finder {
+	return finder.appendMatcher(Size(finder, size, units))
+}
+
+// Sparse returns true if the file is a sparse file (that is, the file size in blocks indicates the
+// file is smaller than the the Size would indicate).
+func Sparse(finder *Finder) Matcher {
+	return func(path string, info fs.DirEntry) (bool, error) {
+		fileInfo, err := info.Info()
+		if finder.CallInternalErrorHandler(err); err != nil {
+			return false, err
+		}
+		blocks := fileInfo.Sys().(*syscall.Stat_t).Blocks
+		return blocks*512 < fileInfo.Size(), nil
+	}
+}
+
+// Sparse appends a Matcher which returns true if the current file is a sparse file.
+func (finder *Finder) Sparse() *Finder {
+	return finder.appendMatcher(Sparse(finder))
 }

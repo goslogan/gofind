@@ -282,6 +282,27 @@ var testFS = fstest.MapFS{
 			Birthtimespec: syscall.Timespec{Sec: time.Date(2025, time.January, 8, 23, 15, 1, 0, time.UTC).Unix()},
 		},
 	},
+
+	"test/other/sparsefile.dat": &fstest.MapFile{
+		ModTime: time.Date(2023, time.December, 1, 11, 12, 22, 0, time.UTC),
+		Mode:    fs.FileMode(0o644),
+		Sys: &syscall.Stat_t{
+			Dev:           16777232,
+			Ino:           8937723,
+			Nlink:         1,
+			Mode:          0x81A4,
+			Uid:           502,
+			Gid:           20,
+			Rdev:          0,
+			Size:          65536,
+			Blksize:       4096,
+			Blocks:        8,
+			Atimespec:     syscall.Timespec{Sec: time.Date(2023, time.December, 2, 8, 43, 19, 0, time.UTC).Unix()},
+			Mtimespec:     syscall.Timespec{Sec: time.Date(2023, time.December, 1, 11, 12, 22, 0, time.UTC).Unix()},
+			Ctimespec:     syscall.Timespec{Sec: time.Date(2023, time.December, 1, 11, 12, 22, 0, time.UTC).Unix()},
+			Birthtimespec: syscall.Timespec{Sec: time.Date(2023, time.December, 1, 10, 9, 1, 0, time.UTC).Unix()},
+		},
+	},
 }
 
 var newFile = fstest.MapFile{
@@ -328,8 +349,8 @@ func TestBMinGreater(t *testing.T) {
 	finder.Bmin(4500*time.Hour, GreaterThan)
 	matches, err := finder.FindFS("test", cpy)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 1)
-	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/other/newfile.dat"}, matches)
 }
 
 func TestBMinEqual(t *testing.T) {
@@ -368,8 +389,8 @@ func TestAminGreater(t *testing.T) {
 	finder.Amin(4500*time.Hour, GreaterThan)
 	matches, err := finder.FindFS("test", cpy)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 1)
-	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/other/newfile.dat"}, matches)
 }
 
 func TestAminEqual(t *testing.T) {
@@ -408,8 +429,8 @@ func TestCminGreater(t *testing.T) {
 	finder.Cmin(4500*time.Hour, GreaterThan)
 	matches, err := finder.FindFS("test", cpy)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 1)
-	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/other/newfile.dat"}, matches)
 }
 
 func TestCminEqual(t *testing.T) {
@@ -448,8 +469,8 @@ func TestMminGreater(t *testing.T) {
 	finder.Mmin(4500*time.Hour, GreaterThan)
 	matches, err := finder.FindFS("test", cpy)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 1)
-	assert.ElementsMatch(t, []string{"test/other/newfile.dat"}, matches)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/other/newfile.dat"}, matches)
 }
 
 func TestMminEqual(t *testing.T) {

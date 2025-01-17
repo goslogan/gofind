@@ -54,8 +54,8 @@ func TestMinDepthFind(t *testing.T) {
 	finder.MinDepth(2)
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 6)
-	assert.ElementsMatch(t, []string{"test/other/zero.dat", "test/l2/l2.txt", "test/other/perms.txt", "test/other/binary.dat", "test/other/link.dat", "test/other/DATA.csv"}, matches)
+	assert.Len(t, matches, 7)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/other/zero.dat", "test/l2/l2.txt", "test/other/perms.txt", "test/other/binary.dat", "test/other/link.dat", "test/other/DATA.csv"}, matches)
 }
 
 // Find at an exact depth
@@ -87,10 +87,34 @@ func TestPrune(t *testing.T) {
 	assert.Len(t, matches, 0)
 }
 
+func TestSizeBytes(t *testing.T) {
+	finder := NewFinder().Size(39, Bytes)
+	matches, err := finder.FindFS("test", testFS)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 2)
+	assert.ElementsMatch(t, []string{"test/other/DATA.csv", "test/data.csv"}, matches)
+}
+
+func TestSizeKiloBytes(t *testing.T) {
+	finder := NewFinder().Size(1, Kilobytes)
+	matches, err := finder.FindFS("test", testFS)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 6)
+	assert.ElementsMatch(t, []string{"test/l2/l2.txt", "test/l1.txt", "test/other/binary.dat", "test/other/perms.txt", "test/other/DATA.csv", "test/data.csv"}, matches)
+}
+
 func TestEmpty(t *testing.T) {
 	finder := NewFinder().Empty()
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 2)
-	assert.ElementsMatch(t, []string{"test/empty", "test/other/zero.dat"}, matches)
+	assert.Len(t, matches, 3)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/empty", "test/other/zero.dat"}, matches)
+}
+
+func TestSparse(t *testing.T) {
+	finder := NewFinder().Sparse()
+	matches, err := finder.FindFS("test", testFS)
+	assert.Nil(t, err)
+	assert.Len(t, matches, 1)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat"}, matches)
 }

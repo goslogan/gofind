@@ -39,8 +39,8 @@ func TestFileFind(t *testing.T) {
 	finder.File()
 	matches, err := finder.FindFS("test", testFS)
 	assert.Nil(t, err)
-	assert.Len(t, matches, 7)
-	assert.ElementsMatch(t, []string{"test/l1.txt", "test/data.csv", "test/l2/l2.txt", "test/other/binary.dat", "test/other/perms.txt", "test/other/DATA.csv", "test/other/zero.dat"}, matches)
+	assert.Len(t, matches, 8)
+	assert.ElementsMatch(t, []string{"test/other/sparsefile.dat", "test/l1.txt", "test/data.csv", "test/l2/l2.txt", "test/other/binary.dat", "test/other/perms.txt", "test/other/DATA.csv", "test/other/zero.dat"}, matches)
 }
 
 // Find by type

@@ -15,6 +15,7 @@ import (
 
 type FileTimeType rune
 type TimeCompareType rune
+type TimeSizeType rune
 
 const (
 	Created     FileTimeType    = 'B'
@@ -24,6 +25,13 @@ const (
 	Equal       TimeCompareType = '='
 	LessThan    TimeCompareType = '<'
 	GreaterThan TimeCompareType = '>'
+	Blocks      TimeSizeType    = 'b'
+	Bytes       TimeSizeType    = 'c'
+	Kilobytes   TimeSizeType    = 'k'
+	Megabytes   TimeSizeType    = 'M'
+	Gigabytes   TimeSizeType    = 'G'
+	Terabytes   TimeSizeType    = 'T'
+	Petabytes   TimeSizeType    = 'P'
 )
 
 // Default capacity for matched file array
